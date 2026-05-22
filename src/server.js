@@ -71,7 +71,7 @@ function authenticateOrg() {
  
         // Login to Salesforce Org
         execSync(
-            'sf org login sfdx-url --sfdx-url-file auth.txt --alias MyOrg',
+            'sf org login sfdx-url --sfdx-url-file auth.txt --alias agentforceOrg',
             {
                 stdio: 'inherit'
             }
