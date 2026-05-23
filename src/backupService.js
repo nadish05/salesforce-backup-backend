@@ -43,7 +43,7 @@ async function retrieveMetadata(
     console.log('Target Org:', orgAlias);
 
     const command =
-        `sf project retrieve start --metadata ApexClass --target-org ${orgAlias}`;
+        `sf project retrieve start --manifest manifest/package.xml --target-org ${orgAlias}`;
 
     console.log('Starting Retrieval...');
 
