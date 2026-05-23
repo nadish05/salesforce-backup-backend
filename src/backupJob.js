@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const { execSync } = require('child_process');
 
 const {
     cloneRepository,
@@ -43,17 +44,45 @@ async function runBackupJob(
         console.log('Repository Cloned');
 
         // ========================================
+        // Create Salesforce DX Project
+        // ========================================
+
+        console.log(
+            'Creating Salesforce DX Project...'
+        );
+
+        execSync(
+            'sf project generate --name tempProject',
+            {
+                cwd: workspace.workspacePath,
+                stdio: 'inherit'
+            }
+        );
+
+        const projectPath = path.join(
+            workspace.workspacePath,
+            'tempProject'
+        );
+
+        console.log(
+            'Salesforce DX Project Created'
+        );
+
+        // ========================================
         // Create Manifest Folder
         // ========================================
 
         const manifestDir = path.join(
-            workspace.workspacePath,
+            projectPath,
             'manifest'
         );
 
         if (!fs.existsSync(manifestDir)) {
 
-            fs.mkdirSync(manifestDir);
+            fs.mkdirSync(
+                manifestDir,
+                { recursive: true }
+            );
 
         }
 
@@ -89,17 +118,15 @@ async function runBackupJob(
         <name>Flow</name>
     </types>
 
-    <types>
-        <members>*</members>
-        <name>Profile</name>
-    </types>
-
     <version>66.0</version>
 
 </Package>`;
 
         fs.writeFileSync(
-            path.join(manifestDir, 'package.xml'),
+            path.join(
+                manifestDir,
+                'package.xml'
+            ),
             packageXml
         );
 
@@ -111,16 +138,48 @@ async function runBackupJob(
         // Retrieve Metadata
         // ========================================
 
-        console.log('Starting Retrieval...');
+        console.log(
+            'Starting Retrieval...'
+        );
 
         await retrieveMetadata(
-            workspace.workspacePath,
+            projectPath,
             orgAlias
         );
 
         console.log(
             'Metadata Retrieved'
         );
+
+        // ========================================
+        // Copy Retrieved Metadata
+        // ========================================
+
+        const sourceForceApp = path.join(
+            projectPath,
+            'force-app'
+        );
+
+        const targetForceApp = path.join(
+            workspace.workspacePath,
+            'force-app'
+        );
+
+        if (fs.existsSync(sourceForceApp)) {
+
+            fs.cpSync(
+                sourceForceApp,
+                targetForceApp,
+                {
+                    recursive: true
+                }
+            );
+
+            console.log(
+                'Metadata copied to repository'
+            );
+
+        }
 
         // ========================================
         // Push To GitHub
