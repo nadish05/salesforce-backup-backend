@@ -3,17 +3,22 @@
 
     <types>
         <members>*</members>
-        <name>ApexClass</name>
+        <name>CustomObject</name>
     </types>
 
     <types>
         <members>*</members>
-        <name>ApexTrigger</name>
+        <name>Layout</name>
     </types>
 
     <types>
         <members>*</members>
         <name>LightningComponentBundle</name>
+    </types>
+
+    <types>
+        <members>*</members>
+        <name>ApexTrigger</name>
     </types>
 
     <version>66.0</version>
