@@ -1,39 +1,93 @@
 const simpleGit = require('simple-git');
 
-async function cloneRepository(repoUrl, workspacePath) {
+async function cloneRepository(
+    repoUrl,
+    workspacePath
+) {
 
     const git = simpleGit();
 
-    console.log('Cloning Repository...');
+    console.log(
+        'Cloning Repository...'
+    );
 
-    await git.clone(repoUrl, workspacePath);
+    await git.clone(
+        repoUrl,
+        workspacePath
+    );
 
-    console.log('Repository Cloned');
+    console.log(
+        'Repository Cloned'
+    );
 
 }
 
-async function pushToGit(workspacePath) {
+async function pushToGit(
+    workspacePath
+) {
 
-    const git = simpleGit(workspacePath);
+    const git =
+        simpleGit(workspacePath);
 
-    const status = await git.status();
+    // ========================================
+    // Configure Git Identity
+    // ========================================
 
-    if (status.files.length === 0) {
+    await git.addConfig(
+        'user.name',
+        'Salesforce Backup Bot'
+    );
 
-        console.log('No changes detected');
+    await git.addConfig(
+        'user.email',
+        'backupbot@example.com'
+    );
+
+    // ========================================
+    // Check Git Status
+    // ========================================
+
+    const status =
+        await git.status();
+
+    if (
+        status.files.length === 0
+    ) {
+
+        console.log(
+            'No changes detected'
+        );
 
         return;
+
     }
 
+    // ========================================
+    // Git Add
+    // ========================================
+
     await git.add('./*');
+
+    // ========================================
+    // Git Commit
+    // ========================================
 
     await git.commit(
         `Backup ${new Date().toISOString()}`
     );
 
-    await git.push('origin', 'main');
+    // ========================================
+    // Git Push
+    // ========================================
 
-    console.log('Git push successful');
+    await git.push(
+        'origin',
+        'main'
+    );
+
+    console.log(
+        'Git push successful'
+    );
 
 }
 
