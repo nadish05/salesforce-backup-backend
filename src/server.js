@@ -182,53 +182,105 @@ app.post('/clone', async (req, res) => {
 // ========================================
  
 app.post('/backup', async (req, res) => {
- 
+
     try {
- 
+
         const {
             repoUrl,
             orgAlias
         } = req.body;
- 
+
+        // ========================================
+        // Validation
+        // ========================================
+
+        if (!repoUrl) {
+
+            return res.status(400).json({
+                success: false,
+                message: 'Missing repoUrl'
+            });
+
+        }
+
+        // ========================================
+        // Check Running Jobs
+        // ========================================
+
+        const jobs =
+            await getAllJobs();
+
+        const runningJob =
+            jobs.find(
+                job =>
+                    job.status === 'RUNNING'
+            );
+
+        if (runningJob) {
+
+            return res.status(400).json({
+                success: false,
+                message:
+                    'Backup already running'
+            });
+
+        }
+
+        // ========================================
         // Create Workspace
+        // ========================================
+
         const workspace =
             createWorkspace();
- 
+
+        // ========================================
         // Create Job
+        // ========================================
+
         await createJob(
             workspace.jobId,
             {
                 orgAlias,
                 repoUrl,
-                status: 'PENDING'
+                status: 'PENDING',
+                createdAt:
+                    new Date().toISOString()
             }
         );
- 
+
+        // ========================================
         // Start Background Job
+        // ========================================
+
         runBackupJob(
             workspace,
             repoUrl,
             orgAlias
         );
- 
-        // Return Immediately
+
+        // ========================================
+        // Response
+        // ========================================
+
         res.json({
             success: true,
-            message: 'Backup job started',
-            jobId: workspace.jobId
+            message:
+                'Backup job started',
+            jobId:
+                workspace.jobId
         });
- 
+
     } catch (err) {
- 
+
         console.error(err);
- 
+
         res.status(500).json({
             success: false,
             error: err.toString()
         });
- 
+
     }
- 
+
 });
  
  
