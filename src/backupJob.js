@@ -234,6 +234,22 @@ async function runBackupJob(
         console.log(
             'Project Files Copied'
         );
+        
+        // ========================================
+        // Remove Temporary Project
+        // ========================================
+
+        fs.rmSync(
+            projectPath,
+            {
+                recursive: true,
+                force: true
+            }
+        );
+
+        console.log(
+            'Temporary Project Removed'
+        );
 
         // ========================================
         // Push To GitHub
