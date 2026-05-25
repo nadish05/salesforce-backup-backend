@@ -2,3 +2,4 @@ node_modules
 temp
 backup-workspace
 backup.db
+.env

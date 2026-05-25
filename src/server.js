@@ -1,6 +1,11 @@
 require('dotenv').config();
  
 const {
+    getAuthorizationUrl,
+    exchangeCodeForToken
+} = require("./authService");
+
+const {
     runDeployJob
 } = require('./deployJob');
 
@@ -500,6 +505,66 @@ app.delete('/cleanup', async (req, res) => {
 // ========================================
  
 authenticateOrg();
+
+app.get("/auth/salesforce", (req, res) => {
+
+    try {
+
+        const authUrl = getAuthorizationUrl();
+
+        return res.redirect(authUrl);
+
+    } catch (error) {
+
+        console.error("OAuth Start Error:", error);
+
+        return res.status(500).json({
+            success: false,
+            message: "Failed to start Salesforce OAuth"
+        });
+    }
+});
+
+app.get("/auth/salesforce/callback", async (req, res) => {
+
+    try {
+
+        const { code } = req.query;
+
+        if (!code) {
+
+            return res.status(400).json({
+                success: false,
+                message: "Authorization code missing"
+            });
+        }
+
+        const tokenData = await exchangeCodeForToken(code);
+
+        console.log("Salesforce OAuth Success");
+
+        console.log(tokenData);
+
+        return res.json({
+            success: true,
+            message: "Salesforce connected successfully",
+            data: tokenData
+        });
+
+    } catch (error) {
+
+        console.error("OAuth Callback Error:");
+
+        console.error(
+            error.response?.data || error.message
+        );
+
+        return res.status(500).json({
+            success: false,
+            message: "OAuth callback failed"
+        });
+    }
+});
  
 app.listen(3000, () => {
  
