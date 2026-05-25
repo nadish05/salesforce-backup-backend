@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const { execSync } = require('child_process');
 
 const {
     cloneRepository,
@@ -38,12 +39,8 @@ async function runBackupJob(
         );
 
         // ========================================
-        // Clone Repository
+        // Clone Empty Repository
         // ========================================
-
-        console.log(
-            'Cloning Repository...'
-        );
 
         await cloneRepository(
             repoUrl,
@@ -55,34 +52,36 @@ async function runBackupJob(
         );
 
         // ========================================
-        // Validate Salesforce Project
+        // Create Temporary Salesforce Project
         // ========================================
 
-        const sfdxProjectPath = path.join(
+        const projectPath = path.join(
             workspace.workspacePath,
-            'sfdx-project.json'
+            'tempProject'
         );
-
-        if (
-            !fs.existsSync(sfdxProjectPath)
-        ) {
-
-            throw new Error(
-                'Invalid Salesforce DX repository. Missing sfdx-project.json'
-            );
-
-        }
 
         console.log(
-            'Valid Salesforce DX Project Found'
+            'Generating Salesforce DX Project...'
+        );
+
+        execSync(
+            `sf project generate --name tempProject`,
+            {
+                cwd: workspace.workspacePath,
+                stdio: 'inherit'
+            }
+        );
+
+        console.log(
+            'Salesforce DX Project Created'
         );
 
         // ========================================
-        // Ensure Manifest Folder Exists
+        // Create Manifest Folder
         // ========================================
 
         const manifestDir = path.join(
-            workspace.workspacePath,
+            projectPath,
             'manifest'
         );
 
@@ -138,11 +137,6 @@ async function runBackupJob(
 
     <types>
         <members>*</members>
-        <name>CustomField</name>
-    </types>
-
-    <types>
-        <members>*</members>
         <name>Layout</name>
     </types>
 
@@ -158,32 +152,12 @@ async function runBackupJob(
 
     <types>
         <members>*</members>
-        <name>PermissionSetGroup</name>
-    </types>
-
-    <types>
-        <members>*</members>
         <name>CustomMetadata</name>
     </types>
 
     <types>
         <members>*</members>
-        <name>ValidationRule</name>
-    </types>
-
-    <types>
-        <members>*</members>
-        <name>RecordType</name>
-    </types>
-
-    <types>
-        <members>*</members>
         <name>StaticResource</name>
-    </types>
-
-    <types>
-        <members>*</members>
-        <name>EmailTemplate</name>
     </types>
 
     <types>
@@ -194,26 +168,6 @@ async function runBackupJob(
     <types>
         <members>*</members>
         <name>Dashboard</name>
-    </types>
-
-    <types>
-        <members>*</members>
-        <name>CustomApplication</name>
-    </types>
-
-    <types>
-        <members>*</members>
-        <name>CustomTab</name>
-    </types>
-
-    <types>
-        <members>*</members>
-        <name>NamedCredential</name>
-    </types>
-
-    <types>
-        <members>*</members>
-        <name>RemoteSiteSetting</name>
     </types>
 
     <version>66.0</version>
@@ -236,26 +190,54 @@ async function runBackupJob(
         // Retrieve Metadata
         // ========================================
 
-        console.log(
-            'Starting Metadata Retrieval...'
-        );
-
         await retrieveMetadata(
-            workspace.workspacePath,
+            projectPath,
             orgAlias
         );
 
         console.log(
-            'Metadata Retrieval Completed'
+            'Metadata Retrieved'
+        );
+
+        // ========================================
+        // Copy Project Contents To Repo Root
+        // ========================================
+
+        const tempFiles =
+            fs.readdirSync(projectPath);
+
+        for (const file of tempFiles) {
+
+            const source =
+                path.join(projectPath, file);
+
+            const destination =
+                path.join(
+                    workspace.workspacePath,
+                    file
+                );
+
+            if (file === '.git') {
+                continue;
+            }
+
+            fs.cpSync(
+                source,
+                destination,
+                {
+                    recursive: true
+                }
+            );
+
+        }
+
+        console.log(
+            'Project Files Copied'
         );
 
         // ========================================
         // Push To GitHub
         // ========================================
-
-        console.log(
-            'Pushing To GitHub...'
-        );
 
         await pushToGit(
             workspace.workspacePath
