@@ -99,21 +99,48 @@ app.get('/auth/salesforce/callback', async (req, res) => {
 
     try {
 
-        const { code } =
-            req.query;
+        console.log(
+    'OAuth Callback Query:',
+    req.query
+);
 
-        if (!code) {
+const {
 
-            return res.status(400).json({
+    code,
+    error,
+    error_description
 
-                success: false,
+} = req.query;
 
-                message:
-                    'Authorization code missing'
+if (error) {
 
-            });
+    return res.status(400).json({
 
-        }
+        success: false,
+
+        error,
+
+        error_description
+
+    });
+
+}
+
+if (!code) {
+
+    return res.status(400).json({
+
+        success: false,
+
+        message:
+            'Authorization code missing',
+
+        query:
+            req.query
+
+    });
+
+}
 
         // ========================================
         // Exchange Token
