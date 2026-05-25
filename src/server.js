@@ -1,236 +1,237 @@
 require('dotenv').config();
- 
+
+const express = require('express');
+
+const cors = require('cors');
+
+const crypto = require('crypto');
+
 const {
-    getAuthorizationUrl,
-    exchangeCodeForToken
-} = require("./authService");
+    createWorkspace
+} = require('./workspaceService');
+
+const {
+    runBackupJob
+} = require('./backupJob');
 
 const {
     runDeployJob
 } = require('./deployJob');
 
-const express = require('express');
-const fs = require('fs');
-const { execSync } = require('child_process');
- 
 const {
-    cleanupOldWorkspaces
-} = require('./cleanupService');
- 
-const {
-    runBackupJob
-} = require('./backupJob');
- 
-const {
-    cloneRepository
-} = require('./gitService');
- 
-const {
-    createWorkspace
-} = require('./workspaceService');
- 
-const {
-    createJob,
-    getJob,
-    getAllJobs
+    getJob
 } = require('./jobService');
- 
-const app = express();
- 
- 
-// ========================================
-// Middleware
-// ========================================
- 
-app.use(express.json());
- 
- 
-// ========================================
-// Environment Validation
-// ========================================
- 
-if (!process.env.SFDX_AUTH_URL) {
- 
-    console.error(
-        'Missing SFDX_AUTH_URL'
-    );
- 
-    process.exit(1);
- 
-}
- 
- 
-// ========================================
-// Salesforce Authentication
-// ========================================
- 
-function authenticateOrg() {
- 
-    try {
- 
-        console.log(
-            'Authenticating Salesforce Org...'
-        );
- 
-        // Write auth URL to file
-        fs.writeFileSync(
-            'auth.txt',
-            process.env.SFDX_AUTH_URL
-        );
- 
-        // Login to Salesforce Org
-        execSync(
-            'sf org login sfdx-url --sfdx-url-file auth.txt --alias agentforceOrg',
-            {
-                stdio: 'inherit'
-            }
-        );
 
-        fs.unlinkSync('auth.txt');
- 
-        console.log(
-            'Salesforce Org Authenticated'
-        );
- 
-    } catch (error) {
- 
-        console.error(
-            'Salesforce Authentication Failed'
-        );
- 
-        console.error(error);
- 
-    }
- 
-}
- 
- 
+const {
+    getAuthorizationUrl,
+    exchangeCodeForToken,
+    storeSession,
+    getSession
+} = require('./authService');
+
+const app = express();
+
+app.use(cors());
+
+app.use(express.json());
+
+
 // ========================================
 // Health Check
 // ========================================
- 
-app.get('/health', (req, res) => {
- 
+
+app.get('/', (req, res) => {
+
     res.json({
         success: true,
-        status: 'OK'
+        message: 'Salesforce Git Backup Backend Running'
     });
- 
+
 });
- 
- 
+
+
 // ========================================
-// Workspace Test Route
+// Salesforce OAuth Login
 // ========================================
- 
-app.get('/workspace', (req, res) => {
- 
+
+app.get('/auth/salesforce', (req, res) => {
+
     try {
- 
-        const workspace =
-            createWorkspace();
- 
-        res.json({
-            success: true,
-            workspace
-        });
- 
-    } catch (err) {
- 
-        console.error(err);
- 
-        res.status(500).json({
-            success: false,
-            error: err.toString()
-        });
- 
-    }
- 
-});
- 
- 
-// ========================================
-// Clone Repository Route
-// ========================================
- 
-app.post('/clone', async (req, res) => {
- 
-    try {
- 
-        const { repoUrl } = req.body;
- 
-        const workspace =
-            createWorkspace();
- 
-        await cloneRepository(
-            repoUrl,
-            workspace.workspacePath
+
+        const authUrl =
+            getAuthorizationUrl();
+
+        return res.redirect(authUrl);
+
+    } catch (error) {
+
+        console.error(
+            'OAuth Start Error:',
+            error
         );
- 
-        res.json({
-            success: true,
-            workspace
-        });
- 
-    } catch (err) {
- 
-        console.error(err);
- 
-        res.status(500).json({
+
+        return res.status(500).json({
             success: false,
-            error: err.toString()
+            message: 'Failed to start Salesforce OAuth'
         });
- 
+
     }
- 
+
 });
- 
- 
+
+
 // ========================================
-// Backup Route
+// Salesforce OAuth Callback
 // ========================================
- 
-app.post('/backup', async (req, res) => {
+
+app.get('/auth/salesforce/callback', async (req, res) => {
 
     try {
 
-        const {
-            repoUrl,
-            orgAlias
-        } = req.body;
+        const { code } =
+            req.query;
 
-        // ========================================
-        // Validation
-        // ========================================
-
-        if (!repoUrl) {
+        if (!code) {
 
             return res.status(400).json({
                 success: false,
-                message: 'Missing repoUrl'
+                message: 'Authorization code missing'
             });
 
         }
 
         // ========================================
-        // Check Running Jobs
+        // Exchange Code For Token
         // ========================================
 
-        const jobs =
-            await getAllJobs();
+        const tokenData =
+            await exchangeCodeForToken(code);
 
-        const runningJob =
-            jobs.find(
-                job =>
-                    job.status === 'RUNNING'
-            );
+        // ========================================
+        // Create Session
+        // ========================================
 
-        if (runningJob) {
+        const sessionId =
+            crypto.randomUUID();
+
+        storeSession(sessionId, {
+
+            access_token:
+                tokenData.access_token,
+
+            refresh_token:
+                tokenData.refresh_token,
+
+            instance_url:
+                tokenData.instance_url
+
+        });
+
+        console.log(
+            `Salesforce session created: ${sessionId}`
+        );
+
+        // ========================================
+        // Success Response
+        // ========================================
+
+        return res.json({
+
+            success: true,
+
+            message:
+                'Salesforce connected successfully',
+
+            sessionId,
+
+            orgUrl:
+                tokenData.instance_url
+
+        });
+
+    } catch (error) {
+
+        console.error(
+            'OAuth Callback Error:'
+        );
+
+        console.error(
+            error.response?.data || error.message
+        );
+
+        return res.status(500).json({
+
+            success: false,
+
+            message:
+                'OAuth callback failed'
+
+        });
+
+    }
+
+});
+
+
+// ========================================
+// Start Backup
+// ========================================
+
+app.post('/start-backup', async (req, res) => {
+
+    try {
+
+        const {
+            repoUrl,
+            sessionId
+        } = req.body;
+
+        // ========================================
+        // Validate Inputs
+        // ========================================
+
+        if (!repoUrl) {
 
             return res.status(400).json({
+
                 success: false,
+
                 message:
-                    'Backup already running'
+                    'Repository URL is required'
+
+            });
+
+        }
+
+        if (!sessionId) {
+
+            return res.status(400).json({
+
+                success: false,
+
+                message:
+                    'Session ID is required'
+
+            });
+
+        }
+
+        // ========================================
+        // Get Salesforce Session
+        // ========================================
+
+        const session =
+            getSession(sessionId);
+
+        if (!session) {
+
+            return res.status(401).json({
+
+                success: false,
+
+                message:
+                    'Invalid or expired Salesforce session'
+
             });
 
         }
@@ -240,60 +241,58 @@ app.post('/backup', async (req, res) => {
         // ========================================
 
         const workspace =
-            createWorkspace();
+            await createWorkspace();
 
-        // ========================================
-        // Create Job
-        // ========================================
-
-        await createJob(
-            workspace.jobId,
-            {
-                orgAlias,
-                repoUrl,
-                status: 'PENDING',
-                createdAt:
-                    new Date().toISOString()
-            }
+        console.log(
+            `Workspace Created: ${workspace.workspacePath}`
         );
 
         // ========================================
-        // Start Background Job
+        // Start Backup Job
         // ========================================
 
         runBackupJob(
             workspace,
             repoUrl,
-            orgAlias
+            session
         );
 
         // ========================================
         // Response
         // ========================================
 
-        res.json({
+        return res.json({
+
             success: true,
+
             message:
                 'Backup job started',
+
             jobId:
                 workspace.jobId
+
         });
 
-    } catch (err) {
+    } catch (error) {
 
-        console.error(err);
+        console.error(error);
 
-        res.status(500).json({
+        return res.status(500).json({
+
             success: false,
-            error: err.toString()
+
+            message:
+                'Failed to start backup'
+
         });
 
     }
 
 });
 
+
 // ========================================
-// Deploy Route
+// Deploy Metadata
 // ========================================
 
 app.post('/deploy', async (req, res) => {
@@ -305,68 +304,25 @@ app.post('/deploy', async (req, res) => {
             orgAlias
         } = req.body;
 
-        // ========================================
-        // Validation
-        // ========================================
-
-        if (!repoUrl) {
+        if (!repoUrl || !orgAlias) {
 
             return res.status(400).json({
+
                 success: false,
-                message: 'Missing repoUrl'
-            });
 
-        }
-
-        // ========================================
-        // Check Running Jobs
-        // ========================================
-
-        const jobs =
-            await getAllJobs();
-
-        const runningJob =
-            jobs.find(
-                job =>
-                    job.status === 'RUNNING'
-            );
-
-        if (runningJob) {
-
-            return res.status(400).json({
-                success: false,
                 message:
-                    'Another job is already running'
+                    'repoUrl and orgAlias are required'
+
             });
 
         }
-
-        // ========================================
-        // Create Workspace
-        // ========================================
 
         const workspace =
-            createWorkspace();
+            await createWorkspace();
 
-        // ========================================
-        // Create Job
-        // ========================================
-
-        await createJob(
-            workspace.jobId,
-            {
-                orgAlias,
-                repoUrl,
-                status: 'PENDING',
-                type: 'DEPLOY',
-                createdAt:
-                    new Date().toISOString()
-            }
+        console.log(
+            `Workspace Created: ${workspace.workspacePath}`
         );
-
-        // ========================================
-        // Start Deploy Job
-        // ========================================
 
         runDeployJob(
             workspace,
@@ -374,202 +330,98 @@ app.post('/deploy', async (req, res) => {
             orgAlias
         );
 
-        // ========================================
-        // Response
-        // ========================================
+        return res.json({
 
-        res.json({
             success: true,
+
             message:
-                'Deployment job started',
+                'Deployment started',
+
             jobId:
                 workspace.jobId
+
         });
 
-    } catch (err) {
+    } catch (error) {
 
-        console.error(err);
+        console.error(error);
 
-        res.status(500).json({
+        return res.status(500).json({
+
             success: false,
-            error: err.toString()
+
+            message:
+                'Failed to start deployment'
+
         });
 
     }
 
 });
- 
- 
+
+
 // ========================================
-// Get All Jobs
+// Get Job Status
 // ========================================
- 
-app.get('/jobs', async (req, res) => {
- 
-    try {
- 
-        const jobs =
-            await getAllJobs();
- 
-        res.json({
-            success: true,
-            jobs
-        });
- 
-    } catch (err) {
- 
-        console.error(err);
- 
-        res.status(500).json({
-            success: false,
-            error: err.toString()
-        });
- 
-    }
- 
-});
- 
- 
-// ========================================
-// Get Single Job
-// ========================================
- 
+
 app.get('/jobs/:jobId', async (req, res) => {
- 
+
     try {
- 
+
         const job =
             await getJob(
                 req.params.jobId
             );
- 
+
         if (!job) {
- 
+
             return res.status(404).json({
+
                 success: false,
-                error: 'Job not found'
+
+                message:
+                    'Job not found'
+
             });
- 
+
         }
- 
-        res.json({
+
+        return res.json({
+
             success: true,
             job
+
         });
- 
-    } catch (err) {
- 
-        console.error(err);
- 
-        res.status(500).json({
+
+    } catch (error) {
+
+        console.error(error);
+
+        return res.status(500).json({
+
             success: false,
-            error: err.toString()
+
+            message:
+                'Failed to fetch job status'
+
         });
- 
+
     }
- 
+
 });
- 
- 
-// ========================================
-// Cleanup Route
-// ========================================
- 
-app.delete('/cleanup', async (req, res) => {
- 
-    try {
- 
-        await cleanupOldWorkspaces();
- 
-        res.json({
-            success: true,
-            message: 'Cleanup completed'
-        });
- 
-    } catch (err) {
- 
-        console.error(err);
- 
-        res.status(500).json({
-            success: false,
-            error: err.toString()
-        });
- 
-    }
- 
-});
- 
- 
+
+
 // ========================================
 // Start Server
 // ========================================
- 
-authenticateOrg();
 
-app.get("/auth/salesforce", (req, res) => {
+const PORT =
+    process.env.PORT || 3000;
 
-    try {
+app.listen(PORT, () => {
 
-        const authUrl = getAuthorizationUrl();
-
-        return res.redirect(authUrl);
-
-    } catch (error) {
-
-        console.error("OAuth Start Error:", error);
-
-        return res.status(500).json({
-            success: false,
-            message: "Failed to start Salesforce OAuth"
-        });
-    }
-});
-
-app.get("/auth/salesforce/callback", async (req, res) => {
-
-    try {
-
-        const { code } = req.query;
-
-        if (!code) {
-
-            return res.status(400).json({
-                success: false,
-                message: "Authorization code missing"
-            });
-        }
-
-        const tokenData = await exchangeCodeForToken(code);
-
-        console.log("Salesforce OAuth Success");
-
-        console.log(tokenData);
-
-        return res.json({
-            success: true,
-            message: "Salesforce connected successfully",
-            data: tokenData
-        });
-
-    } catch (error) {
-
-        console.error("OAuth Callback Error:");
-
-        console.error(
-            error.response?.data || error.message
-        );
-
-        return res.status(500).json({
-            success: false,
-            message: "OAuth callback failed"
-        });
-    }
-});
- 
-app.listen(3000, () => {
- 
     console.log(
-        'Server running on port 3000'
+        `Server running on port ${PORT}`
     );
- 
+
 });

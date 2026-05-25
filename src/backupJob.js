@@ -1,6 +1,9 @@
 const fs = require('fs');
 const path = require('path');
-const { execSync } = require('child_process');
+
+const {
+    execSync
+} = require('child_process');
 
 const {
     cloneRepository,
@@ -18,7 +21,7 @@ const {
 async function runBackupJob(
     workspace,
     repoUrl,
-    orgAlias
+    session
 ) {
 
     try {
@@ -39,7 +42,7 @@ async function runBackupJob(
         );
 
         // ========================================
-        // Clone Empty Repository
+        // Clone Repository
         // ========================================
 
         await cloneRepository(
@@ -52,7 +55,7 @@ async function runBackupJob(
         );
 
         // ========================================
-        // Create Temporary Salesforce Project
+        // Generate Salesforce DX Project
         // ========================================
 
         const projectPath = path.join(
@@ -74,6 +77,36 @@ async function runBackupJob(
 
         console.log(
             'Salesforce DX Project Created'
+        );
+
+        // ========================================
+        // Authenticate Salesforce Org Dynamically
+        // ========================================
+
+        console.log(
+            'Authenticating Salesforce Org...'
+        );
+
+        const accessToken =
+            session.access_token;
+
+        const instanceUrl =
+            session.instance_url;
+
+        execSync(
+
+            `echo ${accessToken} | sf org login access-token --instance-url ${instanceUrl} --alias dynamicOrg --set-default`,
+
+            {
+                cwd: workspace.workspacePath,
+                stdio: 'inherit',
+                shell: true
+            }
+
+        );
+
+        console.log(
+            'Dynamic Salesforce Authentication Completed'
         );
 
         // ========================================
@@ -192,7 +225,7 @@ async function runBackupJob(
 
         await retrieveMetadata(
             projectPath,
-            orgAlias
+            'dynamicOrg'
         );
 
         console.log(
@@ -208,6 +241,12 @@ async function runBackupJob(
 
         for (const file of tempFiles) {
 
+            if (
+                file === '.git'
+            ) {
+                continue;
+            }
+
             const source =
                 path.join(projectPath, file);
 
@@ -216,10 +255,6 @@ async function runBackupJob(
                     workspace.workspacePath,
                     file
                 );
-
-            if (file === '.git') {
-                continue;
-            }
 
             fs.cpSync(
                 source,
@@ -234,7 +269,7 @@ async function runBackupJob(
         console.log(
             'Project Files Copied'
         );
-        
+
         // ========================================
         // Remove Temporary Project
         // ========================================
@@ -264,7 +299,7 @@ async function runBackupJob(
         );
 
         // ========================================
-        // Update Success
+        // Update Job Success
         // ========================================
 
         await updateJob(
