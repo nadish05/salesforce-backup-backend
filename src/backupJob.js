@@ -1,6 +1,8 @@
 const fs = require('fs');
 const path = require('path');
 
+const logger = require('./utils/logger');
+
 const {
     execSync
 } = require('child_process');
@@ -24,6 +26,11 @@ async function runBackupJob(
     session
 ) {
 
+    const jobId =
+        workspace.jobId;
+
+    logger.createJob(jobId);
+
     try {
 
         // ========================================
@@ -31,10 +38,15 @@ async function runBackupJob(
         // ========================================
 
         await updateJob(
-            workspace.jobId,
+            jobId,
             {
                 status: 'RUNNING'
             }
+        );
+
+        logger.addLog(
+            jobId,
+            'Backup job initialized'
         );
 
         console.log(
@@ -45,9 +57,19 @@ async function runBackupJob(
         // Clone Repository
         // ========================================
 
+        logger.addLog(
+            jobId,
+            'Cloning GitHub repository'
+        );
+
         await cloneRepository(
             repoUrl,
             workspace.workspacePath
+        );
+
+        logger.addLog(
+            jobId,
+            'Repository cloned successfully'
         );
 
         console.log(
@@ -63,6 +85,11 @@ async function runBackupJob(
             'tempProject'
         );
 
+        logger.addLog(
+            jobId,
+            'Generating Salesforce DX project'
+        );
+
         console.log(
             'Generating Salesforce DX Project...'
         );
@@ -75,6 +102,11 @@ async function runBackupJob(
             }
         );
 
+        logger.addLog(
+            jobId,
+            'Salesforce DX project created'
+        );
+
         console.log(
             'Salesforce DX Project Created'
         );
@@ -82,6 +114,11 @@ async function runBackupJob(
         // ========================================
         // Authenticate Salesforce Org Dynamically
         // ========================================
+
+        logger.addLog(
+            jobId,
+            'Authenticating Salesforce org'
+        );
 
         console.log(
             'Authenticating Salesforce Org...'
@@ -103,6 +140,11 @@ async function runBackupJob(
                 shell: true
             }
 
+        );
+
+        logger.addLog(
+            jobId,
+            'Salesforce authentication completed'
         );
 
         console.log(
@@ -130,6 +172,11 @@ async function runBackupJob(
             );
 
         }
+
+        logger.addLog(
+            jobId,
+            'Manifest folder created'
+        );
 
         // ========================================
         // Create package.xml
@@ -215,6 +262,11 @@ async function runBackupJob(
             packageXml
         );
 
+        logger.addLog(
+            jobId,
+            'package.xml generated'
+        );
+
         console.log(
             'package.xml created'
         );
@@ -223,9 +275,19 @@ async function runBackupJob(
         // Retrieve Metadata
         // ========================================
 
+        logger.addLog(
+            jobId,
+            'Metadata retrieval started'
+        );
+
         await retrieveMetadata(
             projectPath,
             'dynamicOrg'
+        );
+
+        logger.addLog(
+            jobId,
+            'Metadata retrieved successfully'
         );
 
         console.log(
@@ -235,6 +297,11 @@ async function runBackupJob(
         // ========================================
         // Copy Project Contents To Repo Root
         // ========================================
+
+        logger.addLog(
+            jobId,
+            'Copying retrieved metadata to repository'
+        );
 
         const tempFiles =
             fs.readdirSync(projectPath);
@@ -266,6 +333,11 @@ async function runBackupJob(
 
         }
 
+        logger.addLog(
+            jobId,
+            'Project files copied'
+        );
+
         console.log(
             'Project Files Copied'
         );
@@ -282,6 +354,11 @@ async function runBackupJob(
             }
         );
 
+        logger.addLog(
+            jobId,
+            'Temporary project removed'
+        );
+
         console.log(
             'Temporary Project Removed'
         );
@@ -290,8 +367,18 @@ async function runBackupJob(
         // Push To GitHub
         // ========================================
 
+        logger.addLog(
+            jobId,
+            'Git push started'
+        );
+
         await pushToGit(
             workspace.workspacePath
+        );
+
+        logger.addLog(
+            jobId,
+            'Git push completed successfully'
         );
 
         console.log(
@@ -303,22 +390,32 @@ async function runBackupJob(
         // ========================================
 
         await updateJob(
-            workspace.jobId,
+            jobId,
             {
                 status: 'SUCCESS'
             }
         );
 
+        logger.addLog(
+            jobId,
+            'Backup completed successfully'
+        );
+
         console.log(
-            `Backup Job ${workspace.jobId} completed`
+            `Backup Job ${jobId} completed`
         );
 
     } catch (err) {
 
         console.error(err);
 
+        logger.addLog(
+            jobId,
+            `ERROR: ${err.toString()}`
+        );
+
         await updateJob(
-            workspace.jobId,
+            jobId,
             {
                 status: 'FAILED',
                 error: err.toString()

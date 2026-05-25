@@ -6,6 +6,9 @@ const cors = require('cors');
 
 const crypto = require('crypto');
 
+const logger =
+require('./utils/logger');
+
 const {
     createWorkspace
 } = require('./workspaceService');
@@ -43,8 +46,12 @@ app.use(express.json());
 app.get('/', (req, res) => {
 
     res.json({
+
         success: true,
-        message: 'Salesforce Git Backup Backend Running'
+
+        message:
+            'Salesforce Git Backup Backend Running'
+
     });
 
 });
@@ -71,8 +78,12 @@ app.get('/auth/salesforce', (req, res) => {
         );
 
         return res.status(500).json({
+
             success: false,
-            message: 'Failed to start Salesforce OAuth'
+
+            message:
+                'Failed to start Salesforce OAuth'
+
         });
 
     }
@@ -94,14 +105,18 @@ app.get('/auth/salesforce/callback', async (req, res) => {
         if (!code) {
 
             return res.status(400).json({
+
                 success: false,
-                message: 'Authorization code missing'
+
+                message:
+                    'Authorization code missing'
+
             });
 
         }
 
         // ========================================
-        // Exchange Code For Token
+        // Exchange Token
         // ========================================
 
         const tokenData =
@@ -132,7 +147,7 @@ app.get('/auth/salesforce/callback', async (req, res) => {
         );
 
         // ========================================
-        // Success Response
+        // Response
         // ========================================
 
         return res.json({
@@ -187,7 +202,7 @@ app.post('/start-backup', async (req, res) => {
         } = req.body;
 
         // ========================================
-        // Validate Inputs
+        // Validation
         // ========================================
 
         if (!repoUrl) {
@@ -252,9 +267,11 @@ app.post('/start-backup', async (req, res) => {
         // ========================================
 
         runBackupJob(
+
             workspace,
             repoUrl,
             session
+
         );
 
         // ========================================
@@ -283,6 +300,46 @@ app.post('/start-backup', async (req, res) => {
 
             message:
                 'Failed to start backup'
+
+        });
+
+    }
+
+});
+
+
+// ========================================
+// LIVE LOGS API
+// ========================================
+
+app.get('/logs/:jobId', (req, res) => {
+
+    try {
+
+        const jobId =
+            req.params.jobId;
+
+        const logs =
+            logger.getLogs(jobId);
+
+        return res.json({
+
+            success: true,
+
+            logs
+
+        });
+
+    } catch (error) {
+
+        console.error(error);
+
+        return res.status(500).json({
+
+            success: false,
+
+            message:
+                'Failed to fetch logs'
 
         });
 
@@ -325,9 +382,11 @@ app.post('/deploy', async (req, res) => {
         );
 
         runDeployJob(
+
             workspace,
             repoUrl,
             orgAlias
+
         );
 
         return res.json({
@@ -389,6 +448,7 @@ app.get('/jobs/:jobId', async (req, res) => {
         return res.json({
 
             success: true,
+
             job
 
         });
