@@ -20,10 +20,11 @@ const sessions = new Map();
 function getAuthorizationUrl() {
 
     const params = new URLSearchParams({
-        response_type: "code",
-        client_id: process.env.SALESFORCE_CLIENT_ID,
-        redirect_uri: process.env.SALESFORCE_CALLBACK_URL
-    });
+            response_type: "code",
+            client_id: process.env.SALESFORCE_CLIENT_ID,
+            redirect_uri: process.env.SALESFORCE_CALLBACK_URL,
+            prompt: "login"
+        });
 
     return `${SALESFORCE_LOGIN_URL}/services/oauth2/authorize?${params.toString()}`;
 }
