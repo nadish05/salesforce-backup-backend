@@ -1,6 +1,5 @@
 const fs = require('fs');
 const path = require('path');
-const { execSync } = require('child_process');
 
 const {
     cloneRepository,
@@ -23,6 +22,10 @@ async function runBackupJob(
 
     try {
 
+        // ========================================
+        // Update Job Status
+        // ========================================
+
         await updateJob(
             workspace.jobId,
             {
@@ -30,58 +33,68 @@ async function runBackupJob(
             }
         );
 
-        console.log('Cloning Repository...');
+        console.log(
+            'Starting Backup Job...'
+        );
 
         // ========================================
         // Clone Repository
         // ========================================
+
+        console.log(
+            'Cloning Repository...'
+        );
 
         await cloneRepository(
             repoUrl,
             workspace.workspacePath
         );
 
-        console.log('Repository Cloned');
-
-        // ========================================
-        // Create Salesforce DX Project
-        // ========================================
-
         console.log(
-            'Creating Salesforce DX Project...'
+            'Repository Cloned'
         );
 
-        execSync(
-            'sf project generate --name tempProject',
-            {
-                cwd: workspace.workspacePath,
-                stdio: 'inherit'
-            }
-        );
+        // ========================================
+        // Validate Salesforce Project
+        // ========================================
 
-        const projectPath = path.join(
+        const sfdxProjectPath = path.join(
             workspace.workspacePath,
-            'tempProject'
+            'sfdx-project.json'
         );
 
+        if (
+            !fs.existsSync(sfdxProjectPath)
+        ) {
+
+            throw new Error(
+                'Invalid Salesforce DX repository. Missing sfdx-project.json'
+            );
+
+        }
+
         console.log(
-            'Salesforce DX Project Created'
+            'Valid Salesforce DX Project Found'
         );
 
         // ========================================
-        // Create Manifest Folder
+        // Ensure Manifest Folder Exists
         // ========================================
 
         const manifestDir = path.join(
-            projectPath,
+            workspace.workspacePath,
             'manifest'
         );
 
-        if (!fs.existsSync(manifestDir)) {
+        if (
+            !fs.existsSync(manifestDir)
+        ) {
 
             fs.mkdirSync(
                 manifestDir,
-                { recursive: true }
+                {
+                    recursive: true
+                }
             );
 
         }
@@ -206,6 +219,7 @@ async function runBackupJob(
     <version>66.0</version>
 
 </Package>`;
+
         fs.writeFileSync(
             path.join(
                 manifestDir,
@@ -215,7 +229,7 @@ async function runBackupJob(
         );
 
         console.log(
-            'Manifest package.xml created'
+            'package.xml created'
         );
 
         // ========================================
@@ -223,47 +237,17 @@ async function runBackupJob(
         // ========================================
 
         console.log(
-            'Starting Retrieval...'
+            'Starting Metadata Retrieval...'
         );
 
         await retrieveMetadata(
-            projectPath,
+            workspace.workspacePath,
             orgAlias
         );
 
         console.log(
-            'Metadata Retrieved'
+            'Metadata Retrieval Completed'
         );
-
-        // ========================================
-        // Copy Retrieved Metadata
-        // ========================================
-
-        const sourceForceApp = path.join(
-            projectPath,
-            'force-app'
-        );
-
-        const targetForceApp = path.join(
-            workspace.workspacePath,
-            'force-app'
-        );
-
-        if (fs.existsSync(sourceForceApp)) {
-
-            fs.cpSync(
-                sourceForceApp,
-                targetForceApp,
-                {
-                    recursive: true
-                }
-            );
-
-            console.log(
-                'Metadata copied to repository'
-            );
-
-        }
 
         // ========================================
         // Push To GitHub
@@ -274,7 +258,7 @@ async function runBackupJob(
         );
 
         await pushToGit(
-            projectPath
+            workspace.workspacePath
         );
 
         console.log(
@@ -282,7 +266,7 @@ async function runBackupJob(
         );
 
         // ========================================
-        // Mark Success
+        // Update Success
         // ========================================
 
         await updateJob(
@@ -293,7 +277,7 @@ async function runBackupJob(
         );
 
         console.log(
-            `Job ${workspace.jobId} completed`
+            `Backup Job ${workspace.jobId} completed`
         );
 
     } catch (err) {
