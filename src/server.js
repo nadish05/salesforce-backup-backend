@@ -1,5 +1,9 @@
 require('dotenv').config();
  
+const {
+    runDeployJob
+} = require('./deployJob');
+
 const express = require('express');
 const fs = require('fs');
 const { execSync } = require('child_process');
@@ -266,6 +270,113 @@ app.post('/backup', async (req, res) => {
             success: true,
             message:
                 'Backup job started',
+            jobId:
+                workspace.jobId
+        });
+
+    } catch (err) {
+
+        console.error(err);
+
+        res.status(500).json({
+            success: false,
+            error: err.toString()
+        });
+
+    }
+
+});
+
+// ========================================
+// Deploy Route
+// ========================================
+
+app.post('/deploy', async (req, res) => {
+
+    try {
+
+        const {
+            repoUrl,
+            orgAlias
+        } = req.body;
+
+        // ========================================
+        // Validation
+        // ========================================
+
+        if (!repoUrl) {
+
+            return res.status(400).json({
+                success: false,
+                message: 'Missing repoUrl'
+            });
+
+        }
+
+        // ========================================
+        // Check Running Jobs
+        // ========================================
+
+        const jobs =
+            await getAllJobs();
+
+        const runningJob =
+            jobs.find(
+                job =>
+                    job.status === 'RUNNING'
+            );
+
+        if (runningJob) {
+
+            return res.status(400).json({
+                success: false,
+                message:
+                    'Another job is already running'
+            });
+
+        }
+
+        // ========================================
+        // Create Workspace
+        // ========================================
+
+        const workspace =
+            createWorkspace();
+
+        // ========================================
+        // Create Job
+        // ========================================
+
+        await createJob(
+            workspace.jobId,
+            {
+                orgAlias,
+                repoUrl,
+                status: 'PENDING',
+                type: 'DEPLOY',
+                createdAt:
+                    new Date().toISOString()
+            }
+        );
+
+        // ========================================
+        // Start Deploy Job
+        // ========================================
+
+        runDeployJob(
+            workspace,
+            repoUrl,
+            orgAlias
+        );
+
+        // ========================================
+        // Response
+        // ========================================
+
+        res.json({
+            success: true,
+            message:
+                'Deployment job started',
             jobId:
                 workspace.jobId
         });
