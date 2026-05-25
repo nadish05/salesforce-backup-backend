@@ -274,7 +274,7 @@ async function runBackupJob(
         );
 
         await pushToGit(
-            workspace.workspacePath
+            projectPath
         );
 
         console.log(
