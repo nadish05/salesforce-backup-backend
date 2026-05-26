@@ -311,11 +311,11 @@ app.get(
 
             const redirectUrl =
 
-                `${process.env.FRONTEND_URL}` +
+`${process.env.FRONTEND_URL}` +
 
-                `?connected=true` +
+`#connected=true` +
 
-                `&sessionId=${state}`;
+`&sessionId=${state}`;
 
             return res.redirect(
                 redirectUrl
