@@ -1,114 +1,115 @@
-const axios = require("axios");
+const axios = require('axios');
 
-const SALESFORCE_LOGIN_URL =
-    process.env.SALESFORCE_LOGIN_URL || "https://login.salesforce.com";
+// ========================================
+// Login URL
+// ========================================
 
-/*
-|--------------------------------------------------------------------------
-| In-Memory Session Store
-|--------------------------------------------------------------------------
-*/
+function getLoginUrl(environment) {
 
-const sessions = new Map();
+    return environment === 'sandbox'
 
-/*
-|--------------------------------------------------------------------------
-| Generate Salesforce OAuth URL
-|--------------------------------------------------------------------------
-*/
+        ? 'https://test.salesforce.com'
 
-function getAuthorizationUrl() {
+        : 'https://login.salesforce.com';
 
-    const params = new URLSearchParams({
-        response_type: "code",
-        client_id: process.env.SALESFORCE_CLIENT_ID,
-        redirect_uri: process.env.SALESFORCE_CALLBACK_URL,
-        scope: "api refresh_token offline_access",
-        prompt: "login"
-    });
-
-    return `${SALESFORCE_LOGIN_URL}/services/oauth2/authorize?${params.toString()}`;
 }
 
-/*
-|--------------------------------------------------------------------------
-| Exchange Authorization Code for Token
-|--------------------------------------------------------------------------
-*/
+// ========================================
+// Generate Authorization URL
+// ========================================
 
-async function exchangeCodeForToken(code) {
+function getAuthorizationUrl(
 
-    const params = new URLSearchParams({
-        grant_type: "authorization_code",
-        code,
-        client_id: process.env.SALESFORCE_CLIENT_ID,
-        client_secret: process.env.SALESFORCE_CLIENT_SECRET,
-        redirect_uri: process.env.SALESFORCE_CALLBACK_URL
-    });
+    clientId,
+    environment
 
-    const response = await axios.post(
-        `${SALESFORCE_LOGIN_URL}/services/oauth2/token`,
-        params,
-        {
-            headers: {
-                "Content-Type": "application/x-www-form-urlencoded"
+) {
+
+    const loginUrl =
+        getLoginUrl(environment);
+
+    const params =
+        new URLSearchParams({
+
+            response_type: 'code',
+
+            client_id:
+                clientId,
+
+            redirect_uri:
+                process.env
+                    .SALESFORCE_CALLBACK_URL
+
+        });
+
+    return `${loginUrl}/services/oauth2/authorize?${params.toString()}`;
+
+}
+
+// ========================================
+// Exchange Code For Token
+// ========================================
+
+async function exchangeCodeForToken(
+
+    code,
+    clientId,
+    clientSecret,
+    environment
+
+) {
+
+    const loginUrl =
+        getLoginUrl(environment);
+
+    const params =
+        new URLSearchParams({
+
+            grant_type:
+                'authorization_code',
+
+            code,
+
+            client_id:
+                clientId,
+
+            client_secret:
+                clientSecret,
+
+            redirect_uri:
+                process.env
+                    .SALESFORCE_CALLBACK_URL
+
+        });
+
+    const response =
+        await axios.post(
+
+            `${loginUrl}/services/oauth2/token`,
+
+            params,
+
+            {
+
+                headers: {
+
+                    'Content-Type':
+                        'application/x-www-form-urlencoded'
+
+                }
+
             }
-        }
-    );
+
+        );
 
     return response.data;
+
 }
-
-/*
-|--------------------------------------------------------------------------
-| Store OAuth Session
-|--------------------------------------------------------------------------
-*/
-
-function storeSession(sessionId, sessionData) {
-
-    sessions.set(sessionId, {
-        ...sessionData,
-        createdAt: new Date()
-    });
-
-    console.log(`Session stored: ${sessionId}`);
-}
-
-/*
-|--------------------------------------------------------------------------
-| Get OAuth Session
-|--------------------------------------------------------------------------
-*/
-
-function getSession(sessionId) {
-
-    return sessions.get(sessionId);
-}
-
-/*
-|--------------------------------------------------------------------------
-| Delete OAuth Session
-|--------------------------------------------------------------------------
-*/
-
-function deleteSession(sessionId) {
-
-    sessions.delete(sessionId);
-
-    console.log(`Session deleted: ${sessionId}`);
-}
-
-/*
-|--------------------------------------------------------------------------
-| Export
-|--------------------------------------------------------------------------
-*/
 
 module.exports = {
+
     getAuthorizationUrl,
-    exchangeCodeForToken,
-    storeSession,
-    getSession,
-    deleteSession
+
+    exchangeCodeForToken
+
 };
