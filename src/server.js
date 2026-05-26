@@ -13,8 +13,9 @@ const {
     createWorkspace
 } = require('./workspaceService');
 
-const runBackupJob =
-    require('./backupJob');
+const {
+    runBackupJob
+} = require('./backupJob');
 
 const {
     getJob
