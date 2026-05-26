@@ -26,7 +26,7 @@ const {
 
     exchangeCodeForToken
 
-} = require('./services/authService');
+} = require('./authService');
 
 const app = express();
 
