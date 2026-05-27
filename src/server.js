@@ -88,6 +88,10 @@ app.post(
 
             } = req.body;
 
+            // ====================================
+            // Validation
+            // ====================================
+
             if (
 
                 !clientId ||
@@ -156,6 +160,10 @@ app.post(
             });
 
         } catch (error) {
+
+            console.error(
+                'Connect Salesforce Error:'
+            );
 
             console.error(error);
 
@@ -234,7 +242,7 @@ app.get(
             }
 
             // ====================================
-            // Get Session
+            // Get OAuth Session
             // ====================================
 
             const sessionData =
@@ -306,16 +314,16 @@ app.get(
             oauthSessions.delete(state);
 
             // ====================================
-            // Redirect Back To LWC
+            // Redirect Back To Frontend
             // ====================================
 
             const redirectUrl =
 
-`${process.env.FRONTEND_URL}` +
+                `${process.env.FRONTEND_URL}` +
 
-`#connected=true` +
+                `#connected=true` +
 
-`&sessionId=${state}`;
+                `&sessionId=${state}`;
 
             return res.redirect(
                 redirectUrl
@@ -366,51 +374,37 @@ app.post(
 
             const {
 
-                sessionId,
+                orgAlias,
 
-                repoUrl
+                repoUrl,
+
+                environment,
+
+                sessionId
 
             } = req.body;
 
-            if (
+            // ====================================
+            // Validation
+            // ====================================
 
-                !sessionId ||
-
-                !repoUrl
-
-            ) {
+            if (!repoUrl) {
 
                 return res.status(400).json({
 
                     success: false,
 
                     message:
-                        'Missing required fields'
+                        'Repository URL is required'
 
                 });
 
             }
 
-            // ====================================
-            // Get Connected Org
-            // ====================================
-
-            const orgSession =
-
-                connectedOrgs.get(sessionId);
-
-            if (!orgSession) {
-
-                return res.status(400).json({
-
-                    success: false,
-
-                    message:
-                        'Org session expired'
-
-                });
-
-            }
+            console.log(
+                'Execute Backup Request:',
+                req.body
+            );
 
             // ====================================
             // Create Workspace
@@ -421,8 +415,47 @@ app.post(
                 await createWorkspace();
 
             console.log(
+
                 `Workspace Created: ${workspace.workspacePath}`
+
             );
+
+            // ====================================
+            // Temporary OAuth Session Support
+            // ====================================
+
+            let authData = null;
+
+            if (sessionId) {
+
+                const orgSession =
+
+                    connectedOrgs.get(sessionId);
+
+                if (!orgSession) {
+
+                    return res.status(400).json({
+
+                        success: false,
+
+                        message:
+                            'Org session expired'
+
+                    });
+
+                }
+
+                authData = {
+
+                    access_token:
+                        orgSession.accessToken,
+
+                    instance_url:
+                        orgSession.instanceUrl
+
+                };
+
+            }
 
             // ====================================
             // Start Backup Job
@@ -434,24 +467,28 @@ app.post(
 
                 repoUrl,
 
+                authData,
+
                 {
 
-                    access_token:
-                        orgSession.accessToken,
+                    orgAlias,
 
-                    instance_url:
-                        orgSession.instanceUrl
+                    environment
 
                 }
 
             );
+
+            // ====================================
+            // Response
+            // ====================================
 
             return res.json({
 
                 success: true,
 
                 message:
-                    'Backup Started',
+                    'Backup job started successfully',
 
                 jobId:
                     workspace.jobId
@@ -459,6 +496,10 @@ app.post(
             });
 
         } catch (error) {
+
+            console.error(
+                'Execute Backup Error:'
+            );
 
             console.error(error);
 
@@ -504,6 +545,10 @@ app.get(
             });
 
         } catch (error) {
+
+            console.error(
+                'Logs API Error:'
+            );
 
             console.error(error);
 
@@ -564,6 +609,10 @@ app.get(
             });
 
         } catch (error) {
+
+            console.error(
+                'Job Status Error:'
+            );
 
             console.error(error);
 

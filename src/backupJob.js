@@ -4,6 +4,19 @@ const path = require('path');
 const logger = require('./utils/logger');
 
 const {
+
+    orgAlias,
+
+    environment
+
+} = options;
+
+console.log(
+    'Backup Options:',
+    options
+);
+
+const {
     execSync
 } = require('child_process');
 
@@ -21,9 +34,15 @@ const {
 } = require('./jobService');
 
 async function runBackupJob(
+
     workspace,
+
     repoUrl,
-    session
+
+    authData = null,
+
+    options = {}
+
 ) {
 
     const jobId =
