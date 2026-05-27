@@ -3,13 +3,7 @@ const path = require('path');
 
 const logger = require('./utils/logger');
 
-const {
 
-    orgAlias,
-
-    environment
-
-} = options;
 
 console.log(
     'Backup Options:',
@@ -44,6 +38,13 @@ async function runBackupJob(
     options = {}
 
 ) {
+        const {
+
+        orgAlias,
+
+        environment
+
+    } = options;
 
     const jobId =
         workspace.jobId;
