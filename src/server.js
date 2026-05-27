@@ -380,7 +380,11 @@ app.post(
 
                 environment,
 
-                sessionId
+                sessionId,
+
+                accessToken,
+                
+                instanceUrl
 
             } = req.body;
 
@@ -424,7 +428,15 @@ app.post(
             // Temporary OAuth Session Support
             // ====================================
 
-            let authData = null;
+            let authData = {
+
+    access_token:
+        accessToken,
+
+    instance_url:
+        instanceUrl
+
+};
 
             if (sessionId) {
 
