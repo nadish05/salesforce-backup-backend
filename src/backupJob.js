@@ -168,11 +168,16 @@ async function runBackupJob(
 
         } else {
 
-            throw new Error(
-                'Missing Salesforce authData'
-            );
+    logger.addLog(
+        jobId,
+        'Skipping CLI authentication'
+    );
 
-        }
+    console.log(
+        'Skipping CLI Authentication'
+    );
+
+}
 
         // ========================================
         // Create Manifest Folder
