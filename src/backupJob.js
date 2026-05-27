@@ -1,18 +1,13 @@
 const fs = require('fs');
+
 const path = require('path');
-
-const logger = require('./utils/logger');
-
-
-
-console.log(
-    'Backup Options:',
-    options
-);
 
 const {
     execSync
 } = require('child_process');
+
+const logger =
+    require('./utils/logger');
 
 const {
     cloneRepository,
@@ -38,13 +33,19 @@ async function runBackupJob(
     options = {}
 
 ) {
-        const {
+
+    const {
 
         orgAlias,
 
         environment
 
     } = options;
+
+    console.log(
+        'Backup Options:',
+        options
+    );
 
     const jobId =
         workspace.jobId;
@@ -110,10 +111,6 @@ async function runBackupJob(
             'Generating Salesforce DX project'
         );
 
-        console.log(
-            'Generating Salesforce DX Project...'
-        );
-
         execSync(
             `sf project generate --name tempProject`,
             {
@@ -132,44 +129,50 @@ async function runBackupJob(
         );
 
         // ========================================
-        // Authenticate Salesforce Org Dynamically
+        // Authenticate Salesforce Org
         // ========================================
 
-        logger.addLog(
-            jobId,
-            'Authenticating Salesforce org'
-        );
+        if (authData) {
 
-        console.log(
-            'Authenticating Salesforce Org...'
-        );
+            logger.addLog(
+                jobId,
+                'Authenticating Salesforce org'
+            );
 
-        const accessToken =
-            session.access_token;
+            const accessToken =
+                authData.access_token;
 
-        const instanceUrl =
-            session.instance_url;
+            const instanceUrl =
+                authData.instance_url;
 
-        execSync(
+            execSync(
 
-            `echo ${accessToken} | sf org login access-token --instance-url ${instanceUrl} --alias dynamicOrg --set-default`,
+                `echo ${accessToken} | sf org login access-token --instance-url ${instanceUrl} --alias dynamicOrg --set-default`,
 
-            {
-                cwd: workspace.workspacePath,
-                stdio: 'inherit',
-                shell: true
-            }
+                {
+                    cwd: workspace.workspacePath,
+                    stdio: 'inherit',
+                    shell: true
+                }
 
-        );
+            );
 
-        logger.addLog(
-            jobId,
-            'Salesforce authentication completed'
-        );
+            logger.addLog(
+                jobId,
+                'Salesforce authentication completed'
+            );
 
-        console.log(
-            'Dynamic Salesforce Authentication Completed'
-        );
+            console.log(
+                'Salesforce Authentication Completed'
+            );
+
+        } else {
+
+            throw new Error(
+                'Missing Salesforce authData'
+            );
+
+        }
 
         // ========================================
         // Create Manifest Folder
@@ -287,10 +290,6 @@ async function runBackupJob(
             'package.xml generated'
         );
 
-        console.log(
-            'package.xml created'
-        );
-
         // ========================================
         // Retrieve Metadata
         // ========================================
@@ -317,11 +316,6 @@ async function runBackupJob(
         // ========================================
         // Copy Project Contents To Repo Root
         // ========================================
-
-        logger.addLog(
-            jobId,
-            'Copying retrieved metadata to repository'
-        );
 
         const tempFiles =
             fs.readdirSync(projectPath);
@@ -358,10 +352,6 @@ async function runBackupJob(
             'Project files copied'
         );
 
-        console.log(
-            'Project Files Copied'
-        );
-
         // ========================================
         // Remove Temporary Project
         // ========================================
@@ -377,10 +367,6 @@ async function runBackupJob(
         logger.addLog(
             jobId,
             'Temporary project removed'
-        );
-
-        console.log(
-            'Temporary Project Removed'
         );
 
         // ========================================
