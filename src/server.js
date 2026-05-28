@@ -103,7 +103,7 @@ app.post(
 
                 await createWorkspace();
 
-            logger.log(
+            console.log(
 
                 workspace.id,
 
