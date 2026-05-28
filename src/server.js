@@ -260,43 +260,31 @@ app.get(
 
                     : 'Production';
 
-            // ====================================
-            // Save Connected Org
-            // ====================================
+// ====================================
+// Return OAuth Data
+// ====================================
 
-            await saveConnectedOrg({
+return res.json({
 
-                salesforceBaseUrl:
-                    process.env.SALESFORCE_BASE_URL,
+    success: true,
 
-                sessionId:
-                    process.env.SALESFORCE_SESSION_ID,
+    orgId:
+        userData.organization_id,
 
-                orgId:
-                    userData.organization_id,
+    orgName:
+        userData.organization_id,
 
-                orgName:
-                    userData.organization_id,
+    instanceUrl:
+        tokenData.instance_url,
 
-                instanceUrl:
-                    tokenData.instance_url,
+    refreshToken:
+        tokenData.refresh_token,
 
-                refreshToken:
-                    tokenData.refresh_token,
+    environment
 
-                environment
+});
 
-            });
 
-            console.log(
-                'Connected Org Persisted'
-            );
-
-            return res.send(
-
-                'Salesforce Org Connected Successfully'
-
-            );
 
         } catch (error) {
 
