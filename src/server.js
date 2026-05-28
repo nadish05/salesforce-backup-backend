@@ -264,25 +264,57 @@ app.get(
 // Return OAuth Data
 // ====================================
 
-return res.json({
 
-    success: true,
+// ====================================
+// Send OAuth Data To Parent Window
+// ====================================
 
-    orgId:
-        userData.organization_id,
+return res.send(`
 
-    orgName:
-        userData.organization_id,
+<html>
 
-    instanceUrl:
-        tokenData.instance_url,
+<body>
 
-    refreshToken:
-        tokenData.refresh_token,
+<script>
 
-    environment
+window.opener.postMessage(
 
-});
+    {
+
+        success: true,
+
+        orgId:
+            "${userData.organization_id}",
+
+        orgName:
+            "${userData.organization_id}",
+
+        instanceUrl:
+            "${tokenData.instance_url}",
+
+        refreshToken:
+            "${tokenData.refresh_token}",
+
+        environment:
+            "${environment}"
+
+    },
+
+    "*"
+
+);
+
+window.close();
+
+</script>
+
+</body>
+
+</html>
+
+`);
+
+
 
 
 
