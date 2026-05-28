@@ -99,7 +99,9 @@ app.get(
 
                 `&client_id=${process.env.SF_CLIENT_ID}` +
 
-                `&redirect_uri=${process.env.SF_CALLBACK_URL}`;
+                `&redirect_uri=${process.env.SF_CALLBACK_URL}` + 
+                
+                `&scope=full refresh_token offline_access api`;
 
             console.log(
                 'Redirecting to Salesforce OAuth'
@@ -272,59 +274,32 @@ if (!code) {
 
                     : 'Production';
 
+
 // ====================================
 // Return OAuth Data
 // ====================================
 
+return res.json({
 
-// ====================================
-// Send OAuth Data To Parent Window
-// ====================================
+    success: true,
 
-return res.send(`
+    orgId:
+        userData.organization_id,
 
-<html>
+    orgName:
+        userData.organization_id,
 
-<body>
+    instanceUrl:
+        tokenData.instance_url,
 
-<script>
+    refreshToken:
+        tokenData.refresh_token,
 
-window.opener.postMessage(
+    environment
 
-    {
+});
 
-        success: true,
 
-        orgId:
-            "${userData.organization_id}",
-
-        orgName:
-            "${userData.organization_id}",
-
-        instanceUrl:
-            "${tokenData.instance_url}",
-
-        refreshToken:
-            "${tokenData.refresh_token}",
-
-        environment:
-            "${environment}"
-
-    },
-
-    "*"
-
-);
-
-window.close();
-
-</script>
-
-</body>
-
-</html>
-
-`);
 
 
 
