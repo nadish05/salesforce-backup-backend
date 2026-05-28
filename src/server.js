@@ -164,6 +164,19 @@ app.get(
             // Exchange Code For Tokens
             // ====================================
 
+            console.log( 
+                'SF_CLIENT_ID:', 
+                process.env.SF_CLIENT_ID 
+            ); 
+            console.log( 
+                'SF_CLIENT_SECRET:', 
+                process.env.SF_CLIENT_SECRET 
+            ); 
+            console.log( 
+                'SF_CALLBACK_URL:', 
+                process.env.SF_CALLBACK_URL 
+            );
+
             const tokenResponse =
                 await axios.post(
 
