@@ -3,6 +3,7 @@ require('dotenv').config();
 
 const express = require('express');
 const cors = require('cors');
+const axios = require('axios');
 
 const logger =
     require('./utils/logger');
@@ -18,6 +19,17 @@ const {
 const {
     getJob
 } = require('./jobService');
+
+const {
+
+    saveConnectedOrg
+
+} = require('./salesforceService');
+
+const {
+    refreshAccessToken
+
+} = require('./tokenService');
 
 const app = express();
 
@@ -43,6 +55,118 @@ app.get('/', (req, res) => {
 });
 
 // ========================================
+// OAuth Callback
+// ========================================
+
+app.get(
+
+    '/auth/salesforce/callback',
+
+    async (req, res) => {
+
+        try {
+
+            const {
+
+                orgId,
+
+                orgName,
+
+                instanceUrl,
+
+                refreshToken,
+
+                environment
+
+            } = req.query;
+
+            // ====================================
+            // Validation
+            // ====================================
+
+            if (
+
+                !orgId ||
+
+                !instanceUrl ||
+
+                !refreshToken
+
+            ) {
+
+                return res.status(400).json({
+
+                    success: false,
+
+                    message:
+                        'Missing OAuth data'
+
+                });
+
+            }
+
+            // ====================================
+            // Save Connected Org
+            // ====================================
+
+            await saveConnectedOrg({
+
+                salesforceBaseUrl:
+                    process.env.SALESFORCE_BASE_URL,
+
+                sessionId:
+                    process.env.SALESFORCE_SESSION_ID,
+
+                orgId,
+
+                orgName,
+
+                instanceUrl,
+
+                refreshToken,
+
+                environment
+
+            });
+
+            console.log(
+                'Connected Org Persisted'
+            );
+
+            // ====================================
+            // Success Response
+            // ====================================
+
+            return res.send(
+
+                'Salesforce Org Connected Successfully'
+
+            );
+
+        } catch (error) {
+
+            console.error(
+                'OAuth Callback Error:'
+            );
+
+            console.error(error);
+
+            return res.status(500).json({
+
+                success: false,
+
+                message:
+                    error.message
+
+            });
+
+        }
+
+    }
+
+);
+
+// ========================================
 // Execute Backup
 // ========================================
 
@@ -54,6 +178,7 @@ app.post(
 
         try {
 
+
             const {
 
                 connectedOrgId,
@@ -64,11 +189,17 @@ app.post(
 
                 instanceUrl,
 
-                accessToken,
+                refreshToken,
+
+                clientId,
+
+                clientSecret,
 
                 repoUrl
 
             } = req.body;
+
+
 
             // ====================================
             // Validation
@@ -76,11 +207,16 @@ app.post(
 
             if (
 
-                !accessToken ||
+                !refreshToken ||
 
                 !instanceUrl ||
 
-                !repoUrl
+                !repoUrl ||
+
+                !clientId || 
+
+                !clientSecret
+
 
             ) {
 
@@ -111,19 +247,43 @@ app.post(
 
             );
 
+           
             // ====================================
-            // Auth Data
+            // Generate Fresh Access Token
             // ====================================
+
+            const tokenData =
+
+                await refreshAccessToken({
+
+                    clientId,
+
+                    clientSecret,
+
+                    refreshToken,
+
+                    environment
+
+                });
+
+            console.log(
+                'Fresh access token generated'
+            );
+
+// ====================================
+// Auth Data
+// ====================================
 
             const authData = {
 
                 access_token:
-                    accessToken,
+                    tokenData.access_token,
 
                 instance_url:
                     instanceUrl
 
             };
+
 
             // ====================================
             // Execute Backup Job
