@@ -148,11 +148,12 @@ async function runBackupJob(
             const instanceUrl =
                 authData.instance_url;
 
+            console.log('TOKEN LENGTH:', accessToken.length);
+
             execSync(
 
-                `sf org login access-token \
+                `echo "${accessToken}" | sf org login access-token \
                 --instance-url ${instanceUrl} \
-                --access-token "${accessToken}" \
                 --alias dynamicOrg \
                 --set-default`,
 
