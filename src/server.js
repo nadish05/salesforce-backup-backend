@@ -1,10 +1,8 @@
+
 require('dotenv').config();
 
 const express = require('express');
-
 const cors = require('cors');
-
-const crypto = require('crypto');
 
 const logger =
     require('./utils/logger');
@@ -21,33 +19,11 @@ const {
     getJob
 } = require('./jobService');
 
-const {
-
-    getAuthorizationUrl,
-
-    exchangeCodeForToken
-
-} = require('./authService');
-
 const app = express();
 
 app.use(cors());
 
 app.use(express.json());
-
-// ========================================
-// OAuth Temporary Sessions
-// ========================================
-
-const oauthSessions =
-    new Map();
-
-// ========================================
-// Connected Org Sessions
-// ========================================
-
-const connectedOrgs =
-    new Map();
 
 // ========================================
 // Health Check
@@ -67,12 +43,12 @@ app.get('/', (req, res) => {
 });
 
 // ========================================
-// Connect Salesforce
+// Execute Backup
 // ========================================
 
 app.post(
 
-    '/connect-salesforce',
+    '/execute-backup',
 
     async (req, res) => {
 
@@ -80,11 +56,17 @@ app.post(
 
             const {
 
-                clientId,
+                connectedOrgId,
 
-                clientSecret,
+                orgName,
 
-                environment
+                environment,
+
+                instanceUrl,
+
+                accessToken,
+
+                repoUrl
 
             } = req.body;
 
@@ -94,9 +76,11 @@ app.post(
 
             if (
 
-                !clientId ||
+                !accessToken ||
 
-                !clientSecret
+                !instanceUrl ||
+
+                !repoUrl
 
             ) {
 
@@ -112,305 +96,6 @@ app.post(
             }
 
             // ====================================
-            // Create OAuth Session
-            // ====================================
-
-            const sessionId =
-
-                crypto.randomUUID();
-
-            oauthSessions.set(
-
-                sessionId,
-
-                {
-
-                    clientId,
-
-                    clientSecret,
-
-                    environment
-
-                }
-
-            );
-
-            // ====================================
-            // Generate OAuth URL
-            // ====================================
-
-            const authUrl =
-
-                getAuthorizationUrl(
-
-                    clientId,
-
-                    environment
-
-                ) +
-
-                `&state=${sessionId}`;
-
-            return res.json({
-
-                success: true,
-
-                authUrl
-
-            });
-
-        } catch (error) {
-
-            console.error(
-                'Connect Salesforce Error:'
-            );
-
-            console.error(error);
-
-            return res.status(500).json({
-
-                success: false,
-
-                message:
-                    error.message
-
-            });
-
-        }
-
-    }
-
-);
-
-// ========================================
-// OAuth Callback
-// ========================================
-
-app.get(
-
-    '/auth/salesforce/callback',
-
-    async (req, res) => {
-
-        try {
-
-            const {
-
-                code,
-
-                state,
-
-                error,
-
-                error_description
-
-            } = req.query;
-
-            // ====================================
-            // OAuth Error
-            // ====================================
-
-            if (error) {
-
-                return res.status(400).json({
-
-                    success: false,
-
-                    error,
-
-                    error_description
-
-                });
-
-            }
-
-            // ====================================
-            // Missing Code
-            // ====================================
-
-            if (!code) {
-
-                return res.status(400).json({
-
-                    success: false,
-
-                    message:
-                        'Authorization code missing'
-
-                });
-
-            }
-
-            // ====================================
-            // Get OAuth Session
-            // ====================================
-
-            const sessionData =
-
-                oauthSessions.get(state);
-
-            if (!sessionData) {
-
-                return res.status(400).json({
-
-                    success: false,
-
-                    message:
-                        'Invalid OAuth session'
-
-                });
-
-            }
-
-            // ====================================
-            // Exchange Token
-            // ====================================
-
-            const tokenData =
-
-                await exchangeCodeForToken(
-
-                    code,
-
-                    sessionData.clientId,
-
-                    sessionData.clientSecret,
-
-                    sessionData.environment
-
-                );
-
-            console.log(
-                'Salesforce OAuth Success'
-            );
-
-            // ====================================
-            // Store Connected Org
-            // ====================================
-
-            connectedOrgs.set(
-
-                state,
-
-                {
-
-                    accessToken:
-                        tokenData.access_token,
-
-                    instanceUrl:
-                        tokenData.instance_url,
-
-                    connected:
-                        true
-
-                }
-
-            );
-
-            // ====================================
-            // Cleanup OAuth Session
-            // ====================================
-
-            oauthSessions.delete(state);
-
-            // ====================================
-            // Redirect Back To Frontend
-            // ====================================
-
-            const redirectUrl =
-
-                `${process.env.FRONTEND_URL}` +
-
-                `#connected=true` +
-
-                `&sessionId=${state}`;
-
-            return res.redirect(
-                redirectUrl
-            );
-
-        } catch (error) {
-
-            console.error(
-                'OAuth Callback Error:'
-            );
-
-            console.error(
-
-                error.response?.data ||
-
-                error.message
-
-            );
-
-            return res.status(500).json({
-
-                success: false,
-
-                message:
-                    error.response?.data ||
-
-                    error.message
-
-            });
-
-        }
-
-    }
-
-);
-
-// ========================================
-// Execute Backup
-// ========================================
-
-app.post(
-
-    '/execute-backup',
-
-    async (req, res) => {
-
-        try {
-
-            const {
-
-                orgAlias,
-
-                repoUrl,
-
-                environment,
-
-                sessionId,
-
-                accessToken,
-                
-                instanceUrl
-
-            } = req.body;
-
-            // ====================================
-            // Validation
-            // ====================================
-
-            if (!repoUrl) {
-
-                return res.status(400).json({
-
-                    success: false,
-
-                    message:
-                        'Repository URL is required'
-
-                });
-
-            }
-
-            console.log(
-                'Execute Backup Request:',
-                req.body
-            );
-
-            // ====================================
             // Create Workspace
             // ====================================
 
@@ -418,59 +103,30 @@ app.post(
 
                 await createWorkspace();
 
-            console.log(
+            logger.log(
 
-                `Workspace Created: ${workspace.workspacePath}`
+                workspace.id,
+
+                'Workspace created'
 
             );
 
             // ====================================
-            // Temporary OAuth Session Support
+            // Auth Data
             // ====================================
 
-            let authData = {
+            const authData = {
 
-    access_token:
-        accessToken,
+                access_token:
+                    accessToken,
 
-    instance_url:
-        instanceUrl
+                instance_url:
+                    instanceUrl
 
-};
-
-            if (sessionId) {
-
-                const orgSession =
-
-                    connectedOrgs.get(sessionId);
-
-                if (!orgSession) {
-
-                    return res.status(400).json({
-
-                        success: false,
-
-                        message:
-                            'Org session expired'
-
-                    });
-
-                }
-
-                authData = {
-
-                    access_token:
-                        orgSession.accessToken,
-
-                    instance_url:
-                        orgSession.instanceUrl
-
-                };
-
-            }
+            };
 
             // ====================================
-            // Start Backup Job
+            // Execute Backup Job
             // ====================================
 
             runBackupJob(
@@ -483,7 +139,9 @@ app.post(
 
                 {
 
-                    orgAlias,
+                    connectedOrgId,
+
+                    orgName,
 
                     environment
 
@@ -499,11 +157,8 @@ app.post(
 
                 success: true,
 
-                message:
-                    'Backup job started successfully',
-
                 jobId:
-                    workspace.jobId
+                    workspace.id
 
             });
 
@@ -531,7 +186,7 @@ app.post(
 );
 
 // ========================================
-// Logs API
+// Get Logs
 // ========================================
 
 app.get(
@@ -546,20 +201,21 @@ app.get(
                 req.params.jobId;
 
             const logs =
-                logger.getLogs(jobId);
+                getJob(jobId);
 
             return res.json({
 
                 success: true,
 
-                logs
+                logs:
+                    logs || []
 
             });
 
         } catch (error) {
 
             console.error(
-                'Logs API Error:'
+                'Get Logs Error:'
             );
 
             console.error(error);
@@ -569,71 +225,7 @@ app.get(
                 success: false,
 
                 message:
-                    'Failed to fetch logs'
-
-            });
-
-        }
-
-    }
-
-);
-
-// ========================================
-// Job Status API
-// ========================================
-
-app.get(
-
-    '/jobs/:jobId',
-
-    async (req, res) => {
-
-        try {
-
-            const job =
-
-                await getJob(
-
-                    req.params.jobId
-
-                );
-
-            if (!job) {
-
-                return res.status(404).json({
-
-                    success: false,
-
-                    message:
-                        'Job not found'
-
-                });
-
-            }
-
-            return res.json({
-
-                success: true,
-
-                job
-
-            });
-
-        } catch (error) {
-
-            console.error(
-                'Job Status Error:'
-            );
-
-            console.error(error);
-
-            return res.status(500).json({
-
-                success: false,
-
-                message:
-                    'Failed to fetch job status'
+                    error.message
 
             });
 
@@ -648,12 +240,22 @@ app.get(
 // ========================================
 
 const PORT =
+
     process.env.PORT || 3000;
 
-app.listen(PORT, () => {
+app.listen(
 
-    console.log(
-        `Server running on port ${PORT}`
-    );
+    PORT,
 
-});
+    () => {
+
+        console.log(
+
+            `Server running on port ${PORT}`
+
+        );
+
+    }
+
+);
+

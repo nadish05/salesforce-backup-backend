@@ -3,6 +3,23 @@ const fs = require('fs');
 const path = require('path');
 
 const {
+
+    connectedOrgId,
+
+    orgName,
+
+    environment
+
+} = options;
+
+console.log(
+    'Backup Options:',
+    options
+);
+
+
+
+const {
     execSync
 } = require('child_process');
 
@@ -32,7 +49,8 @@ async function runBackupJob(
 
     options = {}
 
-) {
+)
+ {
 
     const {
 
