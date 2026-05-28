@@ -147,18 +147,30 @@ app.get(
             const code =
                 req.query.code;
 
-            if (!code) {
+            
+if (!code) {
 
-                return res.status(400).json({
+    return res.send(`
 
-                    success: false,
+    <html>
 
-                    message:
-                        'Authorization code missing'
+    <body>
 
-                });
+    <script>
 
-            }
+    window.close();
+
+    </script>
+
+    </body>
+
+    </html>
+
+    `);
+
+}
+
+
 
             // ====================================
             // Exchange Code For Tokens
