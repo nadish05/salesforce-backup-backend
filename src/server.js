@@ -144,44 +144,108 @@ app.get(
 
         try {
 
-            const {
+            const code =
+                req.query.code;
 
-                orgId,
-
-                orgName,
-
-                instanceUrl,
-
-                refreshToken,
-
-                environment
-
-            } = req.query;
-
-            // ====================================
-            // Validation
-            // ====================================
-
-            if (
-
-                !orgId ||
-
-                !instanceUrl ||
-
-                !refreshToken
-
-            ) {
+            if (!code) {
 
                 return res.status(400).json({
 
                     success: false,
 
                     message:
-                        'Missing OAuth data'
+                        'Authorization code missing'
 
                 });
 
             }
+
+            // ====================================
+            // Exchange Code For Tokens
+            // ====================================
+
+            const tokenResponse =
+                await axios.post(
+
+                    'https://login.salesforce.com/services/oauth2/token',
+
+                    new URLSearchParams({
+
+                        grant_type:
+                            'authorization_code',
+
+                        client_id:
+                            process.env.SF_CLIENT_ID,
+
+                        client_secret:
+                            process.env.SF_CLIENT_SECRET,
+
+                        redirect_uri:
+                            process.env.SF_CALLBACK_URL,
+
+                        code
+
+                    }),
+
+                    {
+
+                        headers: {
+
+                            'Content-Type':
+                                'application/x-www-form-urlencoded'
+
+                        }
+
+                    }
+
+                );
+
+            const tokenData =
+                tokenResponse.data;
+
+            console.log(
+                'OAuth Token Exchange Success'
+            );
+
+            // ====================================
+            // Fetch User Info
+            // ====================================
+
+            const identityResponse =
+                await axios.get(
+
+                    `${tokenData.instance_url}` +
+                    `/services/oauth2/userinfo`,
+
+                    {
+
+                        headers: {
+
+                            Authorization:
+                                `Bearer ${tokenData.access_token}`
+
+                        }
+
+                    }
+
+                );
+
+            const userData =
+                identityResponse.data;
+
+            // ====================================
+            // Environment
+            // ====================================
+
+            const environment =
+
+                tokenData.instance_url.includes(
+                    'sandbox'
+                )
+
+                    ? 'Sandbox'
+
+                    : 'Production';
 
             // ====================================
             // Save Connected Org
@@ -195,13 +259,17 @@ app.get(
                 sessionId:
                     process.env.SALESFORCE_SESSION_ID,
 
-                orgId,
+                orgId:
+                    userData.organization_id,
 
-                orgName,
+                orgName:
+                    userData.organization_id,
 
-                instanceUrl,
+                instanceUrl:
+                    tokenData.instance_url,
 
-                refreshToken,
+                refreshToken:
+                    tokenData.refresh_token,
 
                 environment
 
@@ -210,10 +278,6 @@ app.get(
             console.log(
                 'Connected Org Persisted'
             );
-
-            // ====================================
-            // Success Response
-            // ====================================
 
             return res.send(
 
@@ -227,13 +291,21 @@ app.get(
                 'OAuth Callback Error:'
             );
 
-            console.error(error);
+            console.error(
+
+                error.response?.data ||
+
+                error.message
+
+            );
 
             return res.status(500).json({
 
                 success: false,
 
                 message:
+                    error.response?.data ||
+
                     error.message
 
             });
@@ -243,6 +315,7 @@ app.get(
     }
 
 );
+
 
 // ========================================
 // Execute Backup
