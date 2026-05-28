@@ -54,6 +54,84 @@ app.get('/', (req, res) => {
 
 });
 
+
+// ========================================
+// Connect Salesforce Org
+// ========================================
+
+app.get(
+
+    '/connect-salesforce',
+
+    async (req, res) => {
+
+        try {
+
+            const {
+
+                environment
+
+            } = req.query;
+
+            // ====================================
+            // Login URL
+            // ====================================
+
+            const loginUrl =
+
+                environment === 'sandbox'
+
+                    ? 'https://test.salesforce.com'
+
+                    : 'https://login.salesforce.com';
+
+            // ====================================
+            // OAuth URL
+            // ====================================
+
+            const authUrl =
+
+                `${loginUrl}` +
+
+                `/services/oauth2/authorize` +
+
+                `?response_type=code` +
+
+                `&client_id=${process.env.SF_CLIENT_ID}` +
+
+                `&redirect_uri=${process.env.SF_CALLBACK_URL}`;
+
+            console.log(
+                'Redirecting to Salesforce OAuth'
+            );
+
+            return res.redirect(authUrl);
+
+        } catch (error) {
+
+            console.error(
+                'Connect Salesforce Error:'
+            );
+
+            console.error(error);
+
+            return res.status(500).json({
+
+                success: false,
+
+                message:
+                    error.message
+
+            });
+
+        }
+
+    }
+
+);
+
+
+
 // ========================================
 // OAuth Callback
 // ========================================
