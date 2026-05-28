@@ -150,7 +150,11 @@ async function runBackupJob(
 
             execSync(
 
-                `echo ${accessToken} | sf org login access-token --instance-url ${instanceUrl} --alias dynamicOrg --set-default`,
+                `sf org login access-token \
+                --instance-url ${instanceUrl} \
+                --access-token "${accessToken}" \
+                --alias dynamicOrg \
+                --set-default`,
 
                 {
                     cwd: workspace.workspacePath,
