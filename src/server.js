@@ -566,6 +566,77 @@ app.get(
 
 );
 
+
+// ========================================
+// Test Refresh Token
+// ========================================
+
+app.get(
+
+    '/test-refresh-token',
+
+    async (req, res) => {
+
+        try {
+
+            const tokenResponse =
+
+                await axios.post(
+
+                    'https://login.salesforce.com/services/oauth2/token',
+
+                    new URLSearchParams({
+
+                        grant_type:
+                            'refresh_token',
+
+                        client_id:
+                            process.env.SF_CLIENT_ID,
+
+                        client_secret:
+                            process.env.SF_CLIENT_SECRET,
+
+                        refresh_token:
+                            process.env.TEST_REFRESH_TOKEN
+
+                    }),
+
+                    {
+
+                        headers: {
+
+                            'Content-Type':
+                                'application/x-www-form-urlencoded'
+
+                        }
+
+                    }
+
+                );
+
+            return res.json(
+
+                tokenResponse.data
+
+            );
+
+        } catch (error) {
+
+            return res.status(500).json(
+
+                error.response?.data ||
+
+                error.message
+
+            );
+
+        }
+
+    }
+
+);
+
+
 // ========================================
 // Start Server
 // ========================================
